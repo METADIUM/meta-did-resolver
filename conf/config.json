@@ -1,0 +1,19 @@
+{
+    "port":3006,
+    "network": "testnet",
+    "driverId": "did-meta",
+    "url": "https://api.metadium.com/dev",
+    "addresses": {
+        "identityRegistry": "0xbe2bb3d7085ff04bde4b3f177a730a826f05cb70",
+        "serviceKeyResolvers":["0xe96473a2ba7a4bf4bb02da0fbad24bd1ceac6bf6","0x43fe3710e701730151c5fad21d205a4b9f68caf3","0xf4f9790205ee559a379c519e04042b20560eefad"],
+        "publicKeyResolvers":["0x81c638aec7d323d4cd0114a5d5407be241b25d0a"]
+    },
+    "identityHub": {
+        "url": "https://testnetdatahub.metadium.com",
+        "id" : "did:meta:testnet:0000000000000000000000000000000000000000000000000000000000000004"
+    },
+    "cache":{
+        "stdTTL": 100,
+        "checkperiod": 120
+    }
+}
