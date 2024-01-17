@@ -10,12 +10,12 @@ const log = require('ololog').configure
   tag: true
 });
 
-const Web3 = require('web3');
+const { Web3 } = require('web3');
 import AppConfig from '../conf/config.json';
 import {IdentityRegistry, getPublicKeyResolvers, getServiceKeyResolvers} from './contracts';
 import NodeCache from 'node-cache';
 
-app.web3 = new Web3(new Web3.providers.HttpProvider(AppConfig.url));
+app.web3 = new Web3(AppConfig.url);
 
 log.info(ansi.yellow('Configuration'));
 log.info.indent (1)(`web3Config.URL : ${ansi.bright.green(AppConfig.url)}`);
