@@ -1,0 +1,13 @@
+version: "3"
+services:
+  meta-resolver:
+    image: meta-resolver
+    container_name: meta-resolver
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3006:3006"
+    volumes:
+      - ./conf:/app/conf
