@@ -1,4 +1,4 @@
-module.exports = class DIDDocument {
+class DIDDocument {
     constructor(did){
         this['@context'] = 'https://w3id.org/did/v0.11';
         this.id = did;
@@ -18,3 +18,4 @@ module.exports = class DIDDocument {
     }
    
 }
+export default DIDDocument;
