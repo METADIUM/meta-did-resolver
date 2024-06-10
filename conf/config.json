@@ -1,5 +1,6 @@
 {
-    "port":3006,
+    "port": 3006,
+    "method": "meta",
     "network": "testnet",
     "driverId": "did-meta",
     "url": "https://api.metadium.com/dev",
