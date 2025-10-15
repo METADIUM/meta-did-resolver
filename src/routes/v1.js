@@ -20,14 +20,14 @@ module.exports = function(app)
         let startTime = new Date().getTime();
         let metaDID = req.params.meta_did.toLowerCase();
        
-        let regex = new RegExp(`did:${app.appConfig.method}:(?:(testnet|mainnet|enterprise):)?([0-9a-f]{64})`,'i');
+        let regex = new RegExp(`did:${app.appConfig.method}:(?:(testnet|mainnet|enterprise|gov|hdksoe):)?([0-9a-f]{64})`,'i');
         let matcher = regex.exec(metaDID);
         if (matcher == null) {
             res.status(400).json({success:false, message:'invalid did'});
             return;
         }
 
-        let net = 'mainnet';
+        let net = 'hdksoe';
         if (matcher[1]){
             net = matcher[1].toLowerCase();
             if(matcher[1] === 'mainnet'){

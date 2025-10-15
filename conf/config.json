@@ -1,8 +1,8 @@
 {
     "port":3006,
-    "method": "BNK",
-    "network": "testnet",
-    "driverId": "did-bnk",
+    "method": "meta",
+    "network": "hdksoe",
+    "driverId": "did-meta",
     "url": "http://127.0.0.1:8588",
     "addresses": {
         "identityRegistry": "0x162bE0a728FbC5d200240cf5d72af3D25C801012",
