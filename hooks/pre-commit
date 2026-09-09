@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# gitleaks pre-commit — 스테이징된 변경분에서 비밀값을 찾으면 커밋을 막는다.
+#
+# ★스테이징된 diff 만 본다(`git --staged`). 저장소에 이미 있는 값은 건드리지 않으므로
+#   기존 잔존물 때문에 모든 커밋이 실패하는 일이 없다 — 이게 도입 가능성의 핵심이다.
+#
+# 설치:  scripts/install-git-hooks.sh
+# 우회:  git commit --no-verify   (정말 필요할 때만. 왜 우회했는지 커밋 메시지에 남길 것)
+# 예외:  값 끝에 `gitleaks:allow` 주석을 달면 그 줄만 통과한다
+set -uo pipefail
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+CONFIG="$REPO_ROOT/.gitleaks.toml"
+
+# gitleaks 를 찾는다 (PATH → ~/bin → /usr/local/bin)
+GITLEAKS=""
+for c in gitleaks "$HOME/bin/gitleaks" /usr/local/bin/gitleaks; do
+  command -v "$c" >/dev/null 2>&1 && { GITLEAKS=$c; break; }
+done
+
+if [ -z "$GITLEAKS" ]; then
+  cat >&2 <<'MSG'
+
+  ⚠️  gitleaks 가 없어 비밀값 검사를 건너뜁니다.
+
+      설치:  scripts/install-git-hooks.sh   (gitleaks 도 같이 받습니다)
+      또는:  https://github.com/gitleaks/gitleaks/releases
+
+  검사 없이 커밋을 진행합니다.
+
+MSG
+  exit 0
+fi
+
+# 버전이 기준보다 낮으면 알려준다 — 막지는 않는다.
+# ★기본 룰셋의 탐지 범위가 판마다 다르다. 실측으로 소스 상수에 박힌 비밀값
+#   (`private static final String X = "..."`)을 8.28.0 은 잡고 8.21.2 는 놓쳤다.
+#   즉 낮은 버전으로 "통과" 를 확인하면 실제 커버리지를 과대평가한다.
+MIN_VERSION=8.28.0
+CUR_VERSION=$("$GITLEAKS" version 2>/dev/null | tr -d 'v[:space:]')
+if [ -n "$CUR_VERSION" ] && [ "$CUR_VERSION" != "$MIN_VERSION" ] && \
+   [ "$(printf '%s\n%s\n' "$MIN_VERSION" "$CUR_VERSION" | sort -V | head -1)" = "$CUR_VERSION" ]; then
+  echo "  ⚠️  gitleaks $CUR_VERSION — 기준은 $MIN_VERSION 입니다. 낮은 판은 덜 잡습니다" >&2
+  echo "      갱신:  scripts/install-git-hooks.sh 의 GITLEAKS_VERSION 참고" >&2
+fi
+
+# -v 로 Finding(File·Line·RuleID)을 찍는다. --redact 로 값 자체는 가린다
+# (터미널 스크롤백·CI 로그에 비밀값을 다시 남기지 않기 위해서다)
+ARGS=(git --staged --no-banner --redact --verbose --log-level warn)
+[ -f "$CONFIG" ] && ARGS+=(-c "$CONFIG")
+
+if ! "$GITLEAKS" "${ARGS[@]}" "$REPO_ROOT"; then
+  cat >&2 <<'MSG'
+
+  ⛔ 커밋을 막았습니다 — 스테이징된 변경분에 비밀값으로 보이는 것이 있습니다.
+
+  위 Finding 의 File·Line 을 확인하고 셋 중 하나를 하세요.
+
+    1) 진짜 비밀값이면  →  환경변수 플레이스홀더로 바꾼다
+                            password: ${DB_PASSWORD:}
+                            token:   '${TELEGRAM_TOKEN:}'
+                          ★이미 커밋했거나 어딘가에 노출됐다면 파일 수정만으로는
+                            끝나지 않는다. 값 자체를 회전(revoke/rotate)해야 한다.
+
+    2) 오탐이면        →  그 줄 끝에 주석으로  gitleaks:allow  를 붙인다
+                          또는 .gitleaks.toml 의 allowlist 에 규칙을 추가한다
+
+    3) 정말 예외라면   →  git commit --no-verify
+                          (왜 우회했는지 커밋 메시지에 남길 것)
+
+MSG
+  exit 1
+fi
+
+exit 0
