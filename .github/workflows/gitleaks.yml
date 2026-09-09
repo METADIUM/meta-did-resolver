@@ -1,0 +1,47 @@
+# Secret scanning on pull requests.
+#
+# The local pre-commit hook (hooks/pre-commit, installed by
+# scripts/install-git-hooks.sh) is opt-in, so it only protects developers who
+# ran the installer. This workflow is the backstop that applies to everyone.
+#
+# Like the hook, it only looks at the commits the PR adds -- not the whole
+# history. Anything already in the tree does not fail somebody else's PR.
+name: gitleaks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        env:
+          # Keep in sync with scripts/install-git-hooks.sh (GITLEAKS_VERSION)
+          # and hooks/pre-commit (MIN_VERSION). Detection coverage differs
+          # between releases, so the version is pinned deliberately.
+          GITLEAKS_VERSION: 8.28.0
+        run: |
+          set -euo pipefail
+          curl -sSL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install -m 755 /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Scan commits added by this pull request
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          # --redact keeps the value itself out of the build log.
+          gitleaks git \
+            --log-opts "origin/${{ github.base_ref }}..HEAD" \
+            -c .gitleaks.toml \
+            --redact --verbose --no-banner

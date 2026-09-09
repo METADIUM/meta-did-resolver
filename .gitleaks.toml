@@ -1,0 +1,82 @@
+# gitleaks 설정 — Metadium Explorer
+#
+# 기본 룰셋을 확장한다. 2026-09-09 에 실제로 저장소에서 나온 평문 6종으로 시험했더니
+# 기본 룰셋은 3종밖에 못 잡았고, ★못 잡은 둘이 하필 제일 위험한 것들이었다.
+#   - 텔레그램 봇 토큰 : 기본 telegram-bot-api-token 룰은 `TELEGRAM_TOKEN=...` 만 잡는다.
+#                        우리 설정은 전부 Spring YAML 의 `token: '...'` 이라 통과했다
+#   - Gmail 앱비밀번호 : 16자 소문자뿐이라 엔트로피가 낮아 generic 룰에 안 걸린다
+# 아래 [[rules]] 는 그 구멍을 메운다.
+#
+# ★이 파일은 3개 저장소(metadium-explorer-backend · block_explorer_front ·
+#   explorer-front-ws)에 **동일하게 유지한다**. 한쪽만 고치면 조용히 갈라진다.
+#   (hooks/pre-commit · scripts/install-git-hooks.sh 도 같다)
+# ★탐지 범위는 gitleaks 버전에 따라 다르다 — 기본 룰셋이 판마다 바뀐다.
+#   기준 버전은 scripts/install-git-hooks.sh 의 GITLEAKS_VERSION 이다.
+#   (실측: 소스 상수 `private static final String X = "..."` 는 8.28.0 의
+#    generic-api-key 가 잡지만 8.21.2 는 못 잡는다)
+
+[extend]
+useDefault = true
+
+# ── 텔레그램 봇 토큰 (키워드 없이 값 모양만으로 잡는다) ────────────────────
+[[rules]]
+id = "telegram-bot-token-anywhere"
+description = "Telegram bot token (키워드 접두사 없이 값 형태로 탐지 — YAML token: '...' 대응)"
+regex = '''\b[0-9]{8,10}:AA[A-Za-z0-9_\-]{33}\b'''
+keywords = ["AA"]
+
+# ── Google 앱 비밀번호 (16자 소문자, 공백 4-4-4-4 형태 포함) ───────────────
+[[rules]]
+id = "google-app-password"
+description = "Google 앱 비밀번호 (16자 소문자 — 엔트로피가 낮아 generic 룰이 못 잡는다)"
+regex = '''(?i)(?:pass(?:word)?|pwd|app[-_]?password)\s*[:=]\s*["']([a-z]{16}|[a-z]{4}\s[a-z]{4}\s[a-z]{4}\s[a-z]{4})["']'''
+secretGroup = 1
+keywords = ["password", "passwd", "pwd"]
+
+# ── Spring YAML 평문 비밀번호 (플레이스홀더가 아닌 값) ─────────────────────
+# ${ENV} · 빈 문자열 · 자명한 로컬 기본값은 통과시킨다. 그 외 password 값은 막는다.
+[[rules]]
+id = "spring-yaml-plaintext-password"
+description = "Spring YAML 의 평문 password (환경변수 플레이스홀더로 바꿀 것)"
+regex = '''(?im)^\s*password\s*:\s*["']?([^\s"'#]{8,})["']?\s*$'''
+secretGroup = 1
+keywords = ["password"]
+# RE2 는 negative lookahead 를 지원하지 않는다 → 제외는 allowlist 로 한다
+[rules.allowlist]
+regexTarget = "match"
+regexes = [
+  # 환경변수 플레이스홀더 (이게 우리가 원하는 올바른 형태다)
+  '''password\s*:\s*["']?\$\{''',
+  # 자명한 로컬 기본값 — 접근권이 없어 비밀값이 아니다
+  '''(?i)password\s*:\s*["']?(postgres|changeme|1234\d*|test|admin|root|example|dummy|sample|xxx+|\*+|secret|guest)["']?\s*$''',
+  # 값 자체에 'password' 라는 낱말이 들어가면 플레이스홀더다 (mq_password, dbpassword, your-password …)
+  '''(?i)password\s*:\s*["']?[a-z_-]*pass(word)?[a-z_-]*["']?\s*$''',
+  # JS/TS 객체 리터럴의 **변수 참조**는 값이 아니다 (password: this.password, / payload.newPassword,)
+  # ★끝의 쉼표를 요구한다 — YAML 에는 쉼표로 끝나는 값이 없으므로 YAML 탐지는 그대로다.
+  #   따옴표가 붙은 실제 값(password: 'secret',)은 이 패턴에 안 맞아 계속 잡힌다.
+  '''password\s*:\s*[A-Za-z_$][A-Za-z0-9_$.]*\s*,\s*$''',
+]
+
+[allowlist]
+description = "오탐 억제"
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)\.git/''',
+  '''\.(lock|sum)$''',
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)yarn\.lock$''',
+  '''(^|/)gradle/wrapper/''',
+  '''\.(png|jpe?g|gif|svg|ico|woff2?|ttf|eot|pdf)$''',
+]
+regexes = [
+  # 환경변수 플레이스홀더는 비밀값이 아니다
+  '''\$\{[A-Z_][A-Z0-9_]*(:[^}]*)?\}''',
+  # 이더리움 주소는 비밀값이 아니다 (공개 원장에 있다)
+  '''0x[a-fA-F0-9]{40}\b''',
+  # ★0x+64hex(tx 해시 길이)는 일부러 넣지 않는다 — 그것을 허용하면 같은 길이인
+  #   **개인키**(`private-key: '0x...'`)까지 함께 가려져 기본 룰셋보다 후퇴한다.
+  #   tx 해시는 generic-api-key 의 키워드 근접 요건에 애초에 걸리지 않으므로
+  #   빼도 노이즈가 늘지 않는다 (실측: 저장소 전체 findings 6건 → 6건).
+  # 줄 끝에 gitleaks:allow 를 붙이면 의도적 예외로 인정한다
+  '''gitleaks:allow''',
+]
