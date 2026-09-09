@@ -64,6 +64,9 @@ regexes = [
   '''\(\?=''',
   # web3j 컨트랙트 래퍼의 함수명 상수 (FUNC_TOKENURI = "tokenURI" …)
   '''\bFUNC_[A-Z0-9_]*\s*=\s*"''',
+  # ★셸 스크립트 대응 — 값이 경로·변수 확장으로 시작하면 비밀값이 아니다
+  #   (TOKEN_FILE="$HOME/secrets/…" · SSH_KEY="~/.ssh/x.pem" · SECRET_PATH="/etc/…")
+  '''=\s*"[$~/]''',
 ]
 # ★프론트(Vue) 대응 — 템플릿 속성 바인딩은 대입이 아니다 (`:showToken="…"` · `@on-x="…"`).
 #   줄 전체를 봐야 앞의 `:`·`@` 가 보이므로 regexTarget = "line" 이다.
