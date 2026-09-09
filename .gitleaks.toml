@@ -76,6 +76,34 @@ regexes = [
   '''^\s*[:@][A-Za-z][A-Za-z0-9-]*\s*=\s*"''',
 ]
 
+# ── Google reCAPTCHA 키 (값 모양만으로 잡는다) ─────────────────────────────
+# ★2026-09-09 CVE 스캔 부산물로 드러난 **구조적 맹점**이다.
+#   `nuxt.config.js` 에 reCAPTCHA 비밀키가 2023-09-22 부터 평문으로 있었는데
+#   **어떤 룰도 못 잡았다** — 기본 룰셋 · generic-api-key · 위 source-constant-secret
+#   전부 `no leaks found` 였다. 이유는 코드 모양이다:
+#
+#       recapcha_secret:                        ← 키워드는 여기
+#         process.env.NODE_ENV === "development"
+#           ? "6L…40자"                          ← 값은 다른 줄
+#           : "6L…40자",
+#
+#   ★**키워드와 값이 다른 줄에 있으면 못 잡는다.** 우리 룰이 전부 단일 라인 정규식이고,
+#   엔트로피 기반 generic-api-key 도 키워드 근접을 요구하기 때문이다. 삼항 연산자·
+#   여러 줄 문자열 결합·YAML 다음 줄 값은 같은 이유로 전부 사각이다.
+#   ⇒ 그래서 이 룰은 **키워드를 보지 않고 값의 형태만** 본다(텔레그램 토큰 룰과 같은 방식).
+[[rules]]
+id = "recaptcha-key-anywhere"
+description = "Google reCAPTCHA 사이트키·비밀키 (6L + 38자. 키워드 근접을 요구하지 않는다)"
+regex = '''\b6L[A-Za-z0-9_\-]{38}\b'''
+keywords = ["6l"]
+[[rules.allowlists]]
+regexTarget = "match"
+regexes = [
+  # Google 이 문서로 공개한 테스트 키 쌍(항상 통과) — 비밀값이 아니다
+  '''6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI''',
+  '''6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe''',
+]
+
 # ── Spring YAML 평문 비밀번호 (플레이스홀더가 아닌 값) ─────────────────────
 # ${ENV} · 빈 문자열 · 자명한 로컬 기본값은 통과시킨다. 그 외 password 값은 막는다.
 [[rules]]
