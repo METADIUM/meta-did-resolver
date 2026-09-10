@@ -2,7 +2,7 @@ import express from 'express';
 import morgan from 'morgan';
 import {ansi,log} from './helper/logHelper.js';
 import Web3 from 'web3';
-import AppConfig from '../conf/config.json' assert { type: 'json' };
+import AppConfig from '../conf/config.json' with { type: 'json' };
 import {IdentityRegistry, getPublicKeyResolvers, getServiceKeyResolvers} from './contracts/index.js';
 import NodeCache from 'node-cache';
 
