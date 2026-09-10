@@ -14,7 +14,8 @@
     "winston": "^3.13.0"
   },
   "overrides": {
-    "ws": "^8.21.3"
+    "ws": "^8.21.3",
+    "qs": "^6.16.0"
   },
   "type": "module",
   "engines": {
