@@ -7,11 +7,14 @@
   },
   "dependencies": {
     "ansicolor": "^2.0.3",
-    "express": "^4.19.2",
+    "express": "^4.22.2",
     "morgan": "^1.12.0",
     "node-cache": "^5.1.2",
-    "web3": "^4.9.0",
+    "web3": "^4.16.0",
     "winston": "^3.13.0"
+  },
+  "overrides": {
+    "ws": "^8.21.3"
   },
   "type": "module",
   "engines": {
